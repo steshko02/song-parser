@@ -104,4 +104,9 @@ public class FileStorageEntity implements ResourceObj {
     public String getFileName() {
         return Paths.get(this.path).getFileName().toString();
     }
+
+    @Override
+    public void save(ContentConsumer contentConsumer) throws IOException {
+
+    }
 }

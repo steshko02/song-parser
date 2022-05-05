@@ -12,13 +12,13 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 @Service
-@Transactional
 public class ResourceServiceImpl  implements ResourceService {
 
     @Autowired
     private ResourceRepository resourceRepository;
 
     @Override
+    @Transactional
     public Long addResource(Resource resource) {
         if(!resourceRepository.existsByPath(resource.getPath())) {
             resourceRepository.save(resource);

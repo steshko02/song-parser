@@ -26,7 +26,6 @@ public class AlbumServiceImpl implements AlbumService {
     @Autowired
     private ArtistRepository artistRepository;
 
-
     @Override
     public Long add(Album album) {
         albumRepository.save(album);

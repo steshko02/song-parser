@@ -2,7 +2,10 @@ package com.epam.service;
 
 
 
+import com.epam.model.resource.tempResource.TempResourceWithInputStream;
+import com.epam.model.resource.threshold.ThresholdBasedTempResourceFactory;
 import com.epam.service.interfaces.CompressionOperation;
+import org.apache.commons.io.IOUtils;
 
 import java.io.*;
 import java.util.zip.GZIPInputStream;
@@ -10,42 +13,15 @@ import java.util.zip.GZIPOutputStream;
 
 public class GZIPCompressionOperations implements CompressionOperation {
 
-    public InputStream compressInputStream(InputStream inputStreamToCompress) {
-        final PipedOutputStream pos = new PipedOutputStream();
-        PipedInputStream pis = new PipedInputStream();
+    public InputStream compressInputStream(InputStream inputStreamToCompress) throws IOException {
 
-        try {
-            pis.connect(pos);
-
-            Thread thread = new Thread() {
-                public void run () {
-                    startWriting(pos, inputStreamToCompress);
+        return  new TempResourceWithInputStream(ThresholdBasedTempResourceFactory.defaults().createTempResource(
+                outputStream -> {
+                    try(GZIPOutputStream gzipOutputStream = new GZIPOutputStream(new BufferedOutputStream(outputStream))){
+                        IOUtils.copy(inputStreamToCompress,gzipOutputStream);
+                    }
                 }
-            };
-            thread.start();
-        } catch(Exception e) {
-            e.printStackTrace();
-        }
-
-        return pis;
-    }
-
-    public void startWriting(OutputStream out, InputStream in) {
-        try (GZIPOutputStream gOut = new GZIPOutputStream(out)) {
-            byte[] buffer = new byte[10240];
-            int len = -1;
-            while ((len = in.read(buffer)) != -1) {
-                gOut.write(buffer, 0, len);
-            }
-        } catch (Exception ex) {
-            ex.printStackTrace();
-        } finally {
-            try {
-                out.close();
-            } catch( Exception e) {
-                e.printStackTrace();
-            }
-        }
+        ));
     }
 
     @Override
@@ -54,8 +30,7 @@ public class GZIPCompressionOperations implements CompressionOperation {
     }
 
     @Override
-    public InputStream decompressInputStream(InputStream inputStreamToDecompress)
-            throws IOException {
+    public InputStream decompressInputStream(InputStream inputStreamToDecompress) throws IOException {
         return new GZIPInputStream(inputStreamToDecompress);
     }
 }

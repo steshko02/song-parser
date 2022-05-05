@@ -4,6 +4,7 @@ package com.epam.service.interfaces.entity_interface;
 import com.epam.model.entity.Genre;
 
 import java.util.List;
+import java.util.Set;
 
 public interface GenreService {
 
@@ -17,4 +18,6 @@ public interface GenreService {
 
 
     Genre getById(Long id);
+
+    Set<Genre> getByNameElseSave(List<String> genresNames);
 }

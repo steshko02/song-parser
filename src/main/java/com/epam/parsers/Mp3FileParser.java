@@ -1,5 +1,5 @@
 package com.epam.parsers;
-;
+
 import com.epam.exceptions.FileParseException;
 import lombok.Data;
 import org.apache.tomcat.util.http.fileupload.IOUtils;
@@ -8,13 +8,15 @@ import org.farng.mp3.TagException;
 import org.farng.mp3.id3.AbstractID3v2;
 import org.springframework.stereotype.Service;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 
 @Service
 @Data
+@Deprecated
 public class Mp3FileParser implements AudioParser {
 
     private  String fileExtension = ".mp3" ;
@@ -31,12 +33,23 @@ public class Mp3FileParser implements AudioParser {
        }
        return null;
    }
+
+
+
+
+
    public Mp3Metadata getMetadata(InputStream stream) throws TagException, FileParseException, IOException {
         File file = createTmpFile(stream);
         MP3File mp3File  = new MP3File(file);
         AbstractID3v2 abstractID3v2 = create(mp3File);
+        List<String> genres = new ArrayList<>();
+        genres.add(getGenre(abstractID3v2));
+
+        List<String> artists = new ArrayList<>();
+       artists.add(getArtist(abstractID3v2));
+
         Mp3Metadata metadata = new Mp3Metadata(getName(abstractID3v2),getYear(abstractID3v2),
-                getNotes(abstractID3v2),getAlbum(abstractID3v2));
+                getNotes(abstractID3v2),getAlbum(abstractID3v2),genres,artists);
         file.delete();
         return metadata;
     }
@@ -48,36 +61,56 @@ public class Mp3FileParser implements AudioParser {
         else throw new FileParseException(Mp3FileParser.class);
     }
 
-    private String getName(AbstractID3v2 abstractID3v2) throws FileParseException {
-        String name =abstractID3v2.getSongTitle();
-//        if(name == null|| name.isEmpty()){
-//            throw new FileParseException(Mp3FileParser.class);
-//        }
-        return name;
+    private String getName(AbstractID3v2 abstractID3v2) throws IOException {
+
+        byte[] name =abstractID3v2.getSongTitle().getBytes();
+
+        ByteArrayInputStream in = new ByteArrayInputStream(name);
+        InputStreamReader inputStreamReader = new InputStreamReader(in,Charset.forName("UTF-8"));
+
+        String str = "";
+            int c;
+            while ((c=inputStreamReader.read()) !=-1)
+                    str+=(char)c;
+        return str;
     }
 
-    private String getAlbum(AbstractID3v2 abstractID3v2) throws FileParseException {
-        String album = abstractID3v2.getAlbumTitle();
+    private String getAlbum(AbstractID3v2 abstractID3v2) throws UnsupportedEncodingException {
+        byte[] album = abstractID3v2.getAlbumTitle().getBytes(StandardCharsets.UTF_8);
 //        if(album == null || album.isEmpty()){
 //            throw new FileParseException(Mp3FileParser.class);
 //        }
-        return album;
+        return new String(album);
     }
 
     private int getYear(AbstractID3v2 abstractID3v2) throws FileParseException {
-        String year = abstractID3v2.getYearReleased();
-        if(year == null || year.isEmpty()){
+        byte[] year = abstractID3v2.getYearReleased().getBytes(StandardCharsets.UTF_8);
+        if(year.length==0){
 //            throw new FileParseException(Mp3FileParser.class);
         return  0;
         }
-        return Integer.parseInt(year);
+        return Integer.parseInt(String.valueOf(year));
     }
 
     private String getNotes(AbstractID3v2 abstractID3v2) throws FileParseException{
-        String notes = abstractID3v2.getSongComment();
+        byte[] notes = abstractID3v2.getSongComment().getBytes(StandardCharsets.UTF_8);
 //        if(notes == null || notes.isEmpty()){
 //            throw new FileParseException(Mp3FileParser.class);
 //        }
-        return notes;
+        return String.valueOf(notes);
+    }
+    private String getArtist(AbstractID3v2 abstractID3v2) throws FileParseException{
+        byte[] artist = abstractID3v2.getLeadArtist().getBytes(StandardCharsets.UTF_8);
+//        if(notes == null || notes.isEmpty()){
+//            throw new FileParseException(Mp3FileParser.class);
+//        }
+        return String.valueOf(artist);
+    }
+    private String getGenre(AbstractID3v2 abstractID3v2) throws FileParseException{
+        byte[] genre = abstractID3v2.getSongGenre().getBytes(StandardCharsets.UTF_8);
+//        if(notes == null || notes.isEmpty()){
+//            throw new FileParseException(Mp3FileParser.class);
+//        }
+        return String.valueOf(genre);
     }
 }

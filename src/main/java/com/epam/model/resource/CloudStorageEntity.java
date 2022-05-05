@@ -1,20 +1,20 @@
 package com.epam.model.resource;
 
-import io.minio.GetObjectArgs;
-import io.minio.MinioClient;
-import io.minio.PutObjectArgs;
+import com.epam.model.resource.tempResource.SizeAwareInputStream;
+import com.epam.model.resource.tempResource.TempResource;
+import com.epam.model.resource.tempResource.TempResourceFactory;
+import com.epam.model.resource.threshold.ThresholdBasedTempResourceFactory;
+import io.minio.*;
 import io.minio.errors.*;
 import lombok.Data;
 import lombok.SneakyThrows;
-import org.fusesource.hawtbuf.BufferInputStream;
+import org.apache.commons.io.IOUtils;
+import org.checkerframework.checker.units.qual.C;
 import org.springframework.data.annotation.Transient;
 import org.springframework.data.annotation.TypeAlias;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-import java.io.BufferedInputStream;
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.UUID;
@@ -22,7 +22,7 @@ import java.util.UUID;
 @Document
 @Data
 @TypeAlias("MinioResource")
-public class CloudStorageEntity implements ResourceObj {
+public class CloudStorageEntity implements ResourceObj, ResourceObj.ContentConsumer {
 
     @Transient
     public static final String SEQUENCE_NAME = "res_sequence";
@@ -44,12 +44,18 @@ public class CloudStorageEntity implements ResourceObj {
 
     }
 
-    private MinioClient buildClient(){
+    private MinioClient buildClient() throws ServerException, InsufficientDataException, ErrorResponseException, IOException, NoSuchAlgorithmException, InvalidKeyException, InvalidResponseException, XmlParserException, InternalException {
+
         MinioClient minioClient =
                 MinioClient.builder()
                         .endpoint(URL)
                         .credentials(accessKey, secretKey)
                         .build();
+        if (! minioClient.bucketExists(BucketExistsArgs.builder().bucket(this.bucket).build())){
+            minioClient.makeBucket(MakeBucketArgs.builder()
+                    .bucket(this.bucket)
+                    .build());
+        }
         return minioClient;
     }
 
@@ -74,31 +80,41 @@ public class CloudStorageEntity implements ResourceObj {
     @Override
     public InputStream read() throws IOException {
         if(minioClient==null) this.minioClient = buildClient();
-        try (InputStream stream = new ByteArrayInputStream(minioClient.getObject(
-                GetObjectArgs.builder()
-                        .bucket(this.bucket)
-                        .object(this.name)
-                        .build()).readAllBytes())){
+        GetObjectArgs getObjectArgs =   GetObjectArgs.builder()
+                .bucket(this.bucket)
+                .object(this.name)
+                .build();
 
-            return stream;
+        try {
+
+            return minioClient.getObject(getObjectArgs);
         }
         catch (IOException e){
-            throw new IOException(e);
+            throw e;
         }
     }
 
     @Override
     public void save(InputStream stream) throws IOException, ServerException, InsufficientDataException, ErrorResponseException, NoSuchAlgorithmException, InvalidKeyException, InvalidResponseException, XmlParserException, InternalException {
-        byte[] buffer = stream.readAllBytes();
-        stream.close();
-        try (ByteArrayInputStream bis= new ByteArrayInputStream(buffer)){
-            long  size =buffer.length;
-            this.minioClient = buildClient();
+        if(SizeAwareInputStream.class.isAssignableFrom(stream.getClass())){
+           saveStreamWithSize(stream, ((SizeAwareInputStream) stream).getInputStreamSize()); return;
+        }else{
+            try(TempResource tempResource = ThresholdBasedTempResourceFactory.defaults()
+                    .createTempResource(stream);
+                    InputStream inputStream = tempResource.getInputStream()) {
+                saveStreamWithSize(inputStream, tempResource.getSize());
+                return;
+            }
+        }
+    }
+
+    private void saveStreamWithSize(InputStream stream,Long size) throws ServerException, InsufficientDataException, ErrorResponseException, IOException, NoSuchAlgorithmException, InvalidKeyException, InvalidResponseException, XmlParserException, InternalException {
+
+        this.minioClient = buildClient();
             minioClient.putObject(
                     PutObjectArgs.builder().bucket(bucket).object(name).stream(
-                                    bis, size, -1)
+                                    stream, size, -1)
                             .build());
-        }
     }
 
     private void createFileName(){
@@ -108,13 +124,16 @@ public class CloudStorageEntity implements ResourceObj {
 
     @Override
     public String getPath() {
-        return null;
+        return this.URL;
     }
 
+    @SneakyThrows
     @Override
     public void delete() {
-
+        this.minioClient.removeObject(RemoveObjectArgs.builder().bucket(bucket).
+                object(this.name).build());
     }
+
     @Override
     public Class<? extends ResourceObj> supports() {
         return this.getClass();
@@ -125,9 +144,29 @@ public class CloudStorageEntity implements ResourceObj {
         return  this.name;
     }
 
+    @SneakyThrows
+    @Override
+    public void save(ContentConsumer contentConsumer) throws IOException {
+        TempResourceFactory.TempResourceWriter writer = contentConsumer::writeContent;
+        try (TempResource tempResource =
+                ThresholdBasedTempResourceFactory.defaults().createTempResource(writer)){
+            save(tempResource.getInputStream());
+        }
+    }
+
     @Override
     public void setPath(String path) {
-
+        this.URL = path;
     }
+
+    @Override
+    public void writeContent(OutputStream outputStream) throws IOException {
+        try(InputStream stream = read()) {
+            IOUtils.copy(stream,outputStream);
+        }catch (IOException e){
+            throw e;
+        }
+    }
+
 }
 

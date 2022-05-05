@@ -8,6 +8,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import com.epam.service.GZIPCompressionOperations;
 import com.epam.service.interfaces.CompressionOperation;
 
+import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -37,8 +38,9 @@ public class CompressionResource implements ResourceObj {
 
     @Override
     public InputStream read() throws IOException {
-        try(InputStream inputStream = delegate.read()) {
-            return compressionOperation.decompressInputStream(inputStream);
+        try {
+            //return  new BufferedInputStream(delegate.read());
+             return compressionOperation.decompressInputStream(delegate.read());
         } catch (IOException e) {
            throw new IOException("failed read InputStream");
         }
@@ -82,5 +84,10 @@ public class CompressionResource implements ResourceObj {
     @Override
     public String getFileName() {
         return delegate.getFileName();
+    }
+
+    @Override
+    public void save(ContentConsumer contentConsumer) throws IOException {
+        delegate.save(contentConsumer);
     }
 }

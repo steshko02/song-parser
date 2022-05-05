@@ -26,7 +26,6 @@ public class Listener  {
     @JmsListener(destination = "resources")
     public void onMessage(Message message) {
         try{
-            System.out.println(" Message here!!!");
             String id = ((TextMessage) message).getText();
             ResourceObj resource = resourceObjRepository.getResourceById(id);
             createSong.saveSong(resource);
@@ -38,12 +37,5 @@ public class Listener  {
 
     }
 
-//    @JmsListener(destination = "resources")
-//    @SendTo("zip")
-//    public String init(String message) throws Exception {
-//       ResourceObj resource = resourceObjRepository.getResourceById(message);
-//        createSong.saveSong(resource);
-//        return message;
-//    }
 
 }

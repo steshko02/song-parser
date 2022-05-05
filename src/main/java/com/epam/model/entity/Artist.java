@@ -1,13 +1,16 @@
 package com.epam.model.entity;
 
 import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 import javax.persistence.*;
 import java.util.HashSet;
 import java.util.Set;
 
 @Entity
-@Data
+@Getter
+@Setter
 public class Artist {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
@@ -28,10 +31,21 @@ public class Artist {
     public Artist() {
     }
 
+    public Artist(String name) {
+        this.name = name;
+    }
+
+
     public Artist(Long id, String name, String notes) {
         this.id = id;
         this.name = name;
         this.notes = notes;
+    }
+
+    public Artist(String name, String notes, Set<Genre> genres) {
+        this.name = name;
+        this.notes = notes;
+        this.genres = genres;
     }
 
     public Artist(Long id, String name, String notes, Set<Genre> genres) {

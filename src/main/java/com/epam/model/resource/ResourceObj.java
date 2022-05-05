@@ -4,6 +4,7 @@ import io.minio.errors.*;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 
@@ -15,8 +16,18 @@ public interface ResourceObj {
     String getId();
     String getStorageId();
     String getPath();
-    void delete();
     void setPath(String path);
     Class<? extends ResourceObj>  supports();
     String getFileName();
+
+    void  save(ContentConsumer contentConsumer) throws IOException;
+
+    void delete();
+
+    @FunctionalInterface
+    interface ContentConsumer {
+        void writeContent(OutputStream outputStream) throws IOException;
+    }
+
+
 }
